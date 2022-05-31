@@ -1,0 +1,5 @@
+/**
+ * fieldDescription
+ */
+fieldDecorators
+public fieldName: fieldType;

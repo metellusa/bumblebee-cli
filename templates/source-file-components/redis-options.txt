@@ -1,0 +1,11 @@
+const options: RedisOptionsWithOverridesModel = {
+    correlationId: "unset",
+    expiration: 0,
+    expiryMode: "PX",
+    logger,
+    retryAttemptInterval: 0,
+    retryAttempts: 0,
+    ...env.redis
+};
+
+export const RedisAdapter = new RedisConnector(options);

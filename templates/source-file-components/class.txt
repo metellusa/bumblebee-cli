@@ -1,0 +1,8 @@
+classImports
+
+    /**
+     * @description classDescription.
+     */
+    export classType class className {
+        classContent
+}

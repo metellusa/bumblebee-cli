@@ -1,0 +1,46 @@
+import { Environment } from "@uo/base-server";
+import { v4 } from "uuid";
+/**
+ * Environment variables are loaded via process.env which follows The Twelve
+ * Factor App methodology.
+ */
+const env = Environment.fromConfigs({
+    apiName: process.env.API_NAME || "repoName",
+    apiVersion: process.env.API_VERSION || "",
+    apiPort: process.env.API_PORT,
+    apiCorrelationId: v4(),
+    environment: process.env.ENVIRONMENT || "",
+    devEnvironments: "test, local, dev, qa, uat, stg, stg02",
+    prodEnvironments: "stg02, prod, orl, ash",
+    deployVersion: process.env.DEPLOY_VERSION || "Version Not Specified",
+    logOptions: {
+        applicationId: process.env.API_NAME || "repoName",
+        environment: process.env.ENVIRONMENT || "",
+        logLevel: (process.env.LOG_LEVEL === undefined || process.env.ENVIRONMENT === "test") ? "off" : process.env.LOG_LEVEL,
+        consoleEnabled: process.env.CONSOLE_LOGGING_ENABLED === "true",
+        kibanaEnabled: process.env.KIBANA_LOGGING_ENABLED === "true",
+        host: process.env.KIBANA_HOST || "",
+        port: process.env.KIBANA_PORT || ""
+    },
+    validationOptions: {
+        whitelist: false, // If set to true validator will strip validated object of any properties that do not have any decorators
+        forbidNonWhitelisted: false, // If set to true, instead of stripping non-whitelisted properties validator will throw an error
+        forbidUnknownValues: false, // Settings true will cause fail validation of unknown objects.
+        skipMissingProperties: true
+    },
+    database: {
+        protocol: process.env.COUCH_PROTOCOL || "",
+        testMode: process.env.ENVIRONMENT === "test",
+        configurations: {
+            idPrefix: "nameOfPrefix-",
+            UOR: {
+                host: process.env.COUCH_HOST || "",
+                username: process.env.COUCH_USERNAME || "",
+                password: process.env.COUCH_PASSWORD || "",
+                dbName: process.env.COUCH_DATABASE_NAME_CONFIGURATION_UOR || ""
+            }
+        }
+    }
+});
+
+export default env;

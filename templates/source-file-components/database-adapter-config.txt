@@ -1,0 +1,13 @@
+// Database configuration
+private static readonly PREFIX = env.database.configurations.idPrefix;
+    private static readonly connectors: { [key in ResortAreaCode]: CouchdbConnector<databaseModelName> } = {
+        [ResortAreaCode.UOR]: new CouchdbConnector<databaseModelName>(env.database.configurations.UOR.dbName, {
+            protocol: env.database.protocol,
+            testMode: env.database.testMode,
+            ...env.database.configurations.UOR,
+            logOptions: {
+                logger,
+                correlationId: env.apiCorrelationId
+            }
+        })
+    };
