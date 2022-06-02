@@ -31,15 +31,22 @@ function runBumblebeeCli() {
   ])
     .then(async (initialPromptAnswers) => {
       const submitSwaggerResponse: SubmitSwaggerResponse = await ActionsService.submitSwagger(initialPromptAnswers.swaggerPath);
-      const paths = new Map(submitSwaggerResponse.paths.map((pathDetail) => {
-        return [pathDetail.path, pathDetail]
-      }));
+      const paths: any[] = [];
+
+      submitSwaggerResponse.paths.forEach((pathDetail) => {
+        pathDetail.verbs.forEach((verb) => {
+          const path: string = `${verb.signature.toUpperCase()} ${pathDetail.path}`;
+          paths.push([path, pathDetail]);
+        });
+      });
+
+      const pathsMap = new Map(paths);
       const selectedPathsQuestion = {
         type: 'checkbox',
         message: 'Which APIs would you like to generate files for',
         name: 'selectedPaths',
-        choices: [new inquirer.Separator(separatingLine("APIs")), ...paths.keys()],
-        pageSize,
+        choices: [new inquirer.Separator(separatingLine("APIs")), ...pathsMap.keys()],
+        pageSize: pathsMap.size,
         validate(answer: string[]) {
           if (answer.length < 1) {
             return "You must choose at least 1 API to generate files for. That's why I'm here!";
@@ -81,7 +88,7 @@ function runBumblebeeCli() {
             const connectorChoices: string[] = answers.connectorChoices;
             const targetLocation: string = answers.targetLocation;
             const selectedPaths: Path[] = answers.selectedPaths.map((selectedPath: string) => {
-              return paths.get(selectedPath);
+              return pathsMap.get(selectedPath);
             });
 
             let swagger: Swagger = {

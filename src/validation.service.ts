@@ -1,9 +1,12 @@
 import Case from "case";
 import fs from "fs";
 import YAML from "yaml";
-import { OBJECTS_REFERENCE, PARAMETERS_REFERENCE } from "./constants/swagger.const";
+import { DELETE_BY_ID, GET_ALL, GET_BY_ID, POST_CREATE, POST_PROCESS, UPDATE } from "./constants/response-status-codes.const";
+import { OBJECTS_REFERENCE, PARAMETERS_REFERENCE, PERSISTENT_MODEL_LABEL } from "./constants/swagger.const";
+import { PATH_PARAMETER_REQUIRED, REQUEST_BODY_REQUIRED, REQUIRED_ARRAY_REQUIRED, RESPONSE_BODY_REQUIRED } from "./constants/validation-messages.const";
 import { SwaggerValidationLevels } from "./enums/swagger-validation-levels.enum";
 import { VerbBodyType } from "./enums/verb-body-type.enum";
+import { VerbSignatures } from "./enums/verb-signatures.enum";
 import CommonUtils from "./utils/common-utils";
 
 export default class ValidationService {
@@ -43,7 +46,6 @@ export default class ValidationService {
             const validateParameters = (referenceObjs: object[]): string[] => {
                 let parametersErrors: string[] = [];
                 if (referenceObjs) {
-                    let names: string[] = [];
                     referenceObjs.forEach(referenceObj => {
                         let reference: string = CommonUtils.getField(referenceObj, "$ref");
                         if (reference) {
@@ -67,6 +69,9 @@ export default class ValidationService {
                     for (const [rawVerb, rawVerbData] of Object.entries(pathData as object)) {
                         if (CommonUtils.isValidVerb(rawVerb)) {
                             let verbValidationResults: string[] = [];
+
+                            // Validate the verb's response codes
+                            verbValidationResults = verbValidationResults.concat(this.validateVerb(path, rawVerb.toUpperCase(), rawVerbData));
 
                             // If the verb has requestBody, validate it
                             if (CommonUtils.getField(rawVerbData, "requestBody")) {
@@ -104,7 +109,7 @@ export default class ValidationService {
         let objectErrors: string[] = [];
 
         if (objectType === "request" && !CommonUtils.getField(object, "required")) {
-            objectErrors.push(`${SwaggerValidationLevels.Critical} Object: "${objectName}" is missing a required array`);
+            objectErrors.push(`${SwaggerValidationLevels.Critical} Object: "${objectName}" ${REQUIRED_ARRAY_REQUIRED}`);
         }
 
         if (CommonUtils.getField(object, "properties")) {
@@ -116,6 +121,67 @@ export default class ValidationService {
         }
 
         return objectErrors;
+    }
+
+    private static validateVerb(url: string, signature: string, verbFields: any): string[] {
+        let responseCodeErrors: string[] = [];
+        const tag = Case.lower(verbFields.tags[0]);
+        const statusCodes: string[] = Object.getOwnPropertyNames(verbFields.responses);
+        const isGetById = signature === VerbSignatures.GET && url.charAt(url.length - 1) === "}";
+        const hasPathParams = CommonUtils.getField(verbFields, "parameters") ? true : false;
+        const hasRequestBody = CommonUtils.getField(verbFields, "requestBody") ? true : false;
+        const hasResponseBody = CommonUtils.getField(verbFields, "responses.200") ? true : false;
+        let difference: string[] = [];
+
+        if (signature === VerbSignatures.POST) {
+            difference = POST_PROCESS.filter(x => statusCodes.indexOf(x) === -1);
+            // If the path does not have parameters, remove status 404 in the list of missing status codes
+            if (!hasPathParams) {
+                difference.splice(difference.indexOf("404"), 1);
+            }
+            if (!hasRequestBody) {
+                responseCodeErrors.push(`${SwaggerValidationLevels.Critical} Verb ${signature} ${REQUEST_BODY_REQUIRED}`);
+            }
+        } else if (signature === VerbSignatures.POST && tag.includes(PERSISTENT_MODEL_LABEL)) {
+            difference = POST_CREATE.filter(x => statusCodes.indexOf(x) === -1);
+            // If the path does not have parameters, remove status 404 in the list of missing status codes
+            if (!hasPathParams) {
+                difference.splice(difference.indexOf("404"), 1);
+            }
+        } else if (signature === VerbSignatures.GET && !isGetById && tag.includes(PERSISTENT_MODEL_LABEL)) {
+            difference = GET_ALL.filter(x => statusCodes.indexOf(x) === -1);
+            if (!hasResponseBody) {
+                responseCodeErrors.push(`${SwaggerValidationLevels.Critical} Verb ${signature} ${RESPONSE_BODY_REQUIRED}`);
+            }
+        } else if (signature === VerbSignatures.GET && isGetById && tag.includes(PERSISTENT_MODEL_LABEL)) {
+            difference = GET_BY_ID.filter(x => statusCodes.indexOf(x) === -1);
+            if (!hasPathParams) {
+                responseCodeErrors.push(`${SwaggerValidationLevels.Critical} Verb ${signature} ${PATH_PARAMETER_REQUIRED}`);
+            }
+            if (!hasResponseBody) {
+                responseCodeErrors.push(`${SwaggerValidationLevels.Critical} Verb ${signature} ${RESPONSE_BODY_REQUIRED}`);
+            }
+        } else if (signature === VerbSignatures.PUT && tag.includes(PERSISTENT_MODEL_LABEL)) {
+            difference = UPDATE.filter(x => statusCodes.indexOf(x) === -1);
+            // If the path does not have parameters, remove status 404 in the list of missing status codes
+            if (!hasPathParams) {
+                responseCodeErrors.push(`${SwaggerValidationLevels.Critical} Verb ${signature} ${PATH_PARAMETER_REQUIRED}`);
+            }
+            if (!hasRequestBody) {
+                responseCodeErrors.push(`${SwaggerValidationLevels.Critical} Verb ${signature} ${REQUEST_BODY_REQUIRED}`);
+            }
+        } else if (signature === VerbSignatures.DELETE && tag.includes(PERSISTENT_MODEL_LABEL)) {
+            difference = DELETE_BY_ID.filter(x => statusCodes.indexOf(x) === -1);
+            if (!hasPathParams) {
+                responseCodeErrors.push(`${SwaggerValidationLevels.Critical} Verb ${signature} ${PATH_PARAMETER_REQUIRED}`);
+            }
+        }
+
+        if (difference.length > 0) {
+            responseCodeErrors.push(`${SwaggerValidationLevels.Critical} Verb: ${signature} is missing the following error codes: ${difference.join(", ")}.`);
+        }
+
+        return responseCodeErrors;
     }
 
     private static validateRequestObjectName(name: string): string[] {
