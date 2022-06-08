@@ -1,0 +1,71 @@
+# <serviceName>
+
+<serviceDescription>
+
+For any additional questions and/or documentation, please visit:
+
+* Confluence Documentation: [Wiki](https://wiki.inbcu.com)
+* UPR Enterprise and Solution Architecture: [UPR-Services](https://github.inbcu.com/universal-parks-technology/upr-services)
+
+## Controllers
+
+* RootController:
+Exposes following endpoints:
+
+1. `/`
+HealthCheck endpoint
+
+2. `/logs`
+Exposes an `apiCorrelationId` to trace server startup in logs
+
+
+## Development
+| :warning: WARNING: Make sure not to push .env to repo, it is here to bootstrap the service in a working situation and as an example to help you run the service locally, .env file is already ignored in .gitignore |
+| --- |
+
+### Install Dependencies
+```
+npm i
+```
+
+### Test
+```
+npm test
+```
+
+### Build
+Build the application from the TypeScript ```/src``` into the JavaScript ```/dist```:
+```
+npm run build
+```
+
+### Start
+Run the application in development mode with hot module reload:
+```
+npm run dev
+```
+
+### Lint
+Lint the application before making commits:
+```
+npm run tslint
+```
+
+## Production
+
+### Build
+```
+npm run build
+```
+
+### Start
+Run the application in prod mode.
+```
+npm start
+```
+
+## Contacts/Maintainers
+
+## Meta
+Copyright NBCUniversal, 2022. All Rights Reserved.
+

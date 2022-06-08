@@ -12,7 +12,7 @@ export const functionChoice = {
     type: "list",
     name: "functionChoice",
     message: "What would you like to do?",
-    choices: ["Validate the swagger", "Generate files for the swagger"]
+    choices: ["Generate files for the swagger", "Validate the swagger"]
 }
 
 export const swaggerPathQuestion: Question = {

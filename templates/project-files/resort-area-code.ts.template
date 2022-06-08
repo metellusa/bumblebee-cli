@@ -1,0 +1,9 @@
+import {
+    convertToResortAreaCodeUSH as convertToResortAreaCode,
+    ResortAreaCodeUSHEnum as ResortAreaCode
+} from "@uo/resort-area-code";
+
+export {
+    ResortAreaCode,
+    convertToResortAreaCode
+};

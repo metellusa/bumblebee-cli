@@ -29,13 +29,14 @@ export default class ActionsService {
             } catch (err) {
                 throw new Error(`The swagger file specified could not be parsed. Please check it for any errors`);
             }
-            let repoName: string = CommonUtils.getField(this.inputYaml.info, "title");
+            // Infer the repo name from the swagger
+            const repoName: string = Case.kebab(CommonUtils.getField(this.inputYaml.info, "title").replace("API", ""));
+            // Infer the repo description from the swagger
+            const repoDescription: string = CommonUtils.getField(this.inputYaml.info, "description");
+
             let paths: Path[] = [];
             let components = new Map<string, object>();
             let validationErrors = [];
-
-            // Infer the repo name from the swagger
-            repoName = Case.kebab(repoName.replace("API", ""));
 
             const addVerbBodyToComponents = (reference: string): string | undefined => {
                 if (reference) {
@@ -124,6 +125,7 @@ export default class ActionsService {
             }
             return {
                 repoName,
+                repoDescription,
                 paths,
                 components: Array.from(components)
             };

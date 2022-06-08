@@ -1,7 +1,7 @@
 import fs from "fs";
 import { Swagger } from "./models/domain/swagger";
 import {
-    DATABASE_ADAPTERS_DIR, API_MODELS_DIR, APIS_DIR, CONTROLLER_FILE_SUFFIX, DATABASE_ADAPTER_FILE_SUFFIX, SERVICE_FILE_SUFFIX, ENTITY_MODELS_DIR, CORRELATION_ID_PARAM_DESCR, ADAPTER_MODELS_DIR, APP_FILE_PATH, LOGGER_FILE_PATH, ENV_FILE_PATH, REDIS_ADAPTERS_DIR, REDIS_ADAPTER_FILE_SUFFIX
+    DATABASE_ADAPTERS_DIR, API_MODELS_DIR, APIS_DIR, CONTROLLER_FILE_SUFFIX, DATABASE_ADAPTER_FILE_SUFFIX, SERVICE_FILE_SUFFIX, ENTITY_MODELS_DIR, CORRELATION_ID_PARAM_DESCR, ADAPTER_MODELS_DIR, APP_FILE_PATH, LOGGER_FILE_PATH, ENV_FILE_PATH, REDIS_ADAPTERS_DIR, REDIS_ADAPTER_FILE_SUFFIX, RESORT_AREA_CODE_ENUM_PATH
 } from "./constants/project.const";
 import Case from "case";
 import { Verb } from "./models/domain/verb";
@@ -15,10 +15,9 @@ import SourceCodeUtils from "./utils/source-code-utils";
 import { VerbBody } from "./models/domain/verb-body";
 import { FileContent } from "./models/domain/file-content";
 import { VerbBodyType } from "./enums/verb-body-type.enum";
-import ConfigurationService from "./configuration.service";
 import { NANO, ROUTING_CONTROLLERS_LIB, UO_COUCHDB_CONNECTOR_LIB, UO_REDIS_CONNECTOR_LIB } from "./constants/libraries.const";
 import { JSON_CONTROLLER } from "./constants/decorators.const";
-import { COUCHDB_CONNECTOR, DOCUMENT_INSERT_RESPONSE, ENV_VAR_NAME, LOGGER_VAR_NAME, REDIS_CONNECTOR, REDIS_OPTIONS } from "./constants/imports.const";
+import { COUCHDB_CONNECTOR, DOCUMENT_INSERT_RESPONSE, ENV_VAR_NAME, LOGGER_VAR_NAME, REDIS_CONNECTOR, REDIS_OPTIONS, RESORT_AREA_CODE } from "./constants/imports.const";
 
 export default class SourceCodeService {
 
@@ -30,7 +29,6 @@ export default class SourceCodeService {
     public static async generateCodeFiles(swagger: Swagger) {
 
         if (fs.existsSync(swagger.targetLocation)) {
-            ConfigurationService.generateConfigFiles(swagger.targetLocation, swagger.repoName);
             const components = new Map<string, Object>();
 
             swagger.components.forEach(element => {
@@ -284,8 +282,9 @@ export default class SourceCodeService {
         let methodReturnType: string;
 
         classImports.add(`import { ${COUCHDB_CONNECTOR} } from "${UO_COUCHDB_CONNECTOR_LIB}";`);
-        classImports.add(`import ${ENV_VAR_NAME} from "${path.relative(DATABASE_ADAPTERS_DIR, ENV_FILE_PATH.replace(".ts", "")).replace(/[\\]/g, "/")}";`);
         classImports.add(`import { ${LOGGER_VAR_NAME} } from "${path.relative(DATABASE_ADAPTERS_DIR, LOGGER_FILE_PATH.replace(".ts", "")).replace(/\\/g, "/")}";`);
+        classImports.add(`import ${ENV_VAR_NAME} from "${path.relative(DATABASE_ADAPTERS_DIR, ENV_FILE_PATH.replace(".ts", "")).replace(/[\\]/g, "/")}";`);
+        classImports.add(`import { ${RESORT_AREA_CODE} } from "${path.relative(DATABASE_ADAPTERS_DIR, RESORT_AREA_CODE_ENUM_PATH.replace(".ts", "")).replace(/\\/g, "/")}";`);
 
         if (verb.signature === "get") {
             methodReturnType = Case.pascal(`${verb.model}-database`);

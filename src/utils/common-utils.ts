@@ -7,6 +7,7 @@ import { Method } from "../models/domain/method";
 import { ClassFile } from "../models/domain/class-file";
 import { CLASS_TEMPLATE, DECORATED_CLASS_TEMPLATE, DECORATED_METHOD_TEMPLATE, METHOD_TEMPLATE, PLAIN_FILE_TEMPLATE } from "../constants/templates.const";
 import { PlainFile } from "../models/domain/plain file";
+import { VerbSignatures } from "../enums/verb-signatures.enum";
 
 /**
  * @description Utilities used across the service
@@ -18,13 +19,7 @@ export default class CommonUtils {
      * @returns returns a boolean value
      */
     public static isValidVerb(fieldName: string): boolean {
-        if (fieldName === 'post' ||
-            fieldName === 'put' ||
-            fieldName === 'get' ||
-            fieldName === 'delete') {
-            return true;
-        }
-        return false;
+        return Object.values(VerbSignatures).includes(fieldName.toUpperCase() as VerbSignatures);
     }
 
     /**

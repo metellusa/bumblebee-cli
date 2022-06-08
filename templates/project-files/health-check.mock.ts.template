@@ -1,0 +1,14 @@
+import { HealthCheckModel } from "@uo/couchdb-connector";
+
+export interface MockDatabaseHealthCheckParams {
+    healthy?: boolean;
+}
+
+export function mockDatabaseHealthCheck(params?: MockDatabaseHealthCheckParams): HealthCheckModel {
+    return {
+        overallHealthy: params?.healthy ?? true,
+        databaseConnection: "",
+        databases: [],
+        designDocuments: []
+    };
+}

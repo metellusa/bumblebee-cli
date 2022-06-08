@@ -1,0 +1,20 @@
+ARG NODE_VERSION="16.14.2"
+
+FROM harbor.use.ucdp.net/docker-hub-proxy/library/node:${NODE_VERSION} as build
+WORKDIR /usr/app
+
+COPY ./package* ./
+COPY ./.npmrc ./
+RUN npm i && rm .npmrc
+COPY . .
+RUN npm run build
+
+FROM harbor.use.ucdp.net/docker-hub-proxy/library/node:${NODE_VERSION}
+WORKDIR /usr/app
+
+COPY --from=build /usr/app/dist /usr/app/dist
+COPY --from=build /usr/app/definitions /usr/app/definitions
+COPY --from=build /usr/app/node_modules /usr/app/node_modules
+COPY --from=build /usr/app/package.json /usr/app/package.json
+
+CMD ["npm", "run", "start"]

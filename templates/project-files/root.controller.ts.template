@@ -1,0 +1,74 @@
+import { CouchdbHealthCheckUtility } from "@uo/couchdb-connector";
+import { cpu, mem } from "node-os-utils";
+import { Get, JsonController } from "routing-controllers";
+import { startTime } from "../../app";
+import env from "../../configs";
+import { logger } from "../../logger";
+
+// TODO: this dependency will exist after a connector is made
+// import { healthCheck as serviceHealthCheck } from "@uo/http-client";
+
+/**
+ * @description Controller class for handling health check request
+ */
+@JsonController()
+export default class RootController {
+
+    /**
+     * @description Returns service metrics
+     * @returns the service metrics
+     */
+    @Get("/")
+    public healthCheck(): any {
+        const endTime = process.hrtime(startTime);
+        const uptime = (endTime[0] * 1000) + (endTime[1] / 1000000);
+
+        return {
+            name: env.apiName,
+            version: env.apiVersion,
+            build: env.deployVersion,
+            apiCorrelationId: env.apiCorrelationId,
+            uptime
+        };
+    }
+
+    /**
+     * @description Submits health check logs to elastic
+     * @returns the API Correlation Id
+     */
+    @Get("/logs")
+    public async healthCheckLogs(): Promise<any> {
+        const operationId = "Root.healthCheckLogs";
+        const cpuUsage = await cpu.usage();
+        const memory = await mem.info();
+        const endTime = process.hrtime(startTime);
+        const uptime = (endTime[0] * 1000) + (endTime[1] / 1000000);
+
+        const dbHealth = {
+            uor: await CouchdbHealthCheckUtility.check({ protocol: env.database.protocol, ...env.database.templates.UOR }),
+            ush: await CouchdbHealthCheckUtility.check({ protocol: env.database.protocol, ...env.database.templates.USH })
+        };
+        const serviceConnectorsHealth = { overallHealthy: true };
+        // TODO: after connector is made
+        // await serviceHealthCheck(env.serviceConnectors, env.apiCorrelationId);
+
+        logger.info("Service Health Check", {
+            name: env.apiName,
+            version: env.apiVersion,
+            build: env.deployVersion,
+            uptime,
+            cpuUsage,
+            memory,
+            configuration: { ...env },
+            dbHealth,
+            serviceConnectorsHealth
+        }, operationId, env.apiCorrelationId);
+
+        return {
+            externalConnectionHealth: serviceConnectorsHealth.overallHealthy,
+            dataHealth: dbHealth.uor.overallHealthy && dbHealth.ush.overallHealthy,
+            apiCorrelationId: env.apiCorrelationId
+        };
+    }
+
+}

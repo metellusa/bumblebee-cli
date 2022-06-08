@@ -1,0 +1,24 @@
+// Test env vars configuration
+process.env.ENVIRONMENT = "test";
+process.env.ELASTIC_APM_ACTIVE = "false";
+
+module.exports = {
+    // Required modules before running tests
+    require: ["dotenv/config", "reflect-metadata", "ts-node/register"],
+
+    // Test configs
+    checkLeaks: true,
+    recursive: true,
+    timeout: 25000,
+    exit: true,
+
+    // Set up mocha-multi-reporters
+    reporter: "mocha-multi-reporters",
+    reporterOptions: "configFile=.mocharc.js",
+
+    // Configure reporters
+    reporterEnabled: "spec, mocha-junit-reporter",
+    mochaJunitReporterReporterOptions: {
+        mochaFile: "reports/junit.xml"
+    }
+}

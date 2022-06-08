@@ -1,0 +1,19 @@
+# Node modules
+node_modules/
+
+# Build artifacts
+dist/
+
+# Unit test artifacts
+.nyc_output/
+coverage/
+reports/
+
+# IDE files
+.idea/
+.vscode/
+
+# Misc files
+.DS_Store
+.env
+.npmrc

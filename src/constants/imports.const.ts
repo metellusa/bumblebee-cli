@@ -4,6 +4,7 @@ export const COUCHDB_CONNECTOR = "CouchdbConnector";
 export const REDIS_CONNECTOR = "RedisConnector";
 export const REDIS_OPTIONS = "RedisOptionsWithOverridesModel";
 export const DOCUMENT_INSERT_RESPONSE = "DocumentInsertResponse";
+export const RESORT_AREA_CODE = "ResortAreaCode";
 export const LOGGER_VAR_NAME = "logger";
 export const ENV_VAR_NAME = "env";
 export const EXPECT = "expect";

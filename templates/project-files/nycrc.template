@@ -1,0 +1,25 @@
+{
+    "check-coverage": true,
+    "reporter": [
+        "lcov",
+        "text"
+    ],
+    "per-file": false,
+    "lines": 95,
+    "statements": 95,
+    "functions": 95,
+    "branches": 95,
+    "extension": [
+        ".ts"
+    ],
+    "include": [
+        "src/**/*.ts"
+    ],
+    "exclude": [
+        "src/*.ts",
+        "src/config/",
+        "src/test-utilities/",
+        "src/**/models/",
+        "src/**/*.spec.ts"
+    ]
+}

@@ -1,0 +1,62 @@
+import { CouchdbHealthCheckUtility } from "@uo/couchdb-connector";
+import { expect } from "chai";
+import sinon from "sinon";
+import env from "../../../configs";
+import { mockDatabaseHealthCheck } from "../../../test-utilities/mocks/health-check.mock";
+import RootController from "../root.controller";
+
+describe("Unit Test Cases: RootController", function() {
+    describe("healthCheck", function() {
+        describe("Basic conditions met", function() {
+            // Setup Test Variables
+            const rootController = new RootController();
+            let response: any;
+
+            before(function() {
+                response = rootController.healthCheck();
+            });
+
+            it("should return api name", function() {
+                expect(response.name).to.equal(env.apiName);
+            });
+
+            it("should return api version", function() {
+                expect(response.version).to.equal(env.apiVersion);
+            });
+
+            it("should return deploy version", function() {
+                expect(response.build).to.equal(env.deployVersion);
+            });
+
+            it("should return uptime", function() {
+                expect(response.uptime).to.exist;
+            });
+
+            it("should return api correlationId", function() {
+                expect(response.apiCorrelationId).to.exist;
+            });
+        });
+    });
+
+    describe("healthCheckLogs", function() {
+        describe("Basic conditions met", function() {
+            // Setup Test Variables
+            const rootController = new RootController();
+            let response: any;
+
+            before(async function() {
+                sinon.stub(CouchdbHealthCheckUtility, "check").resolves(mockDatabaseHealthCheck());
+                response = await rootController.healthCheckLogs();
+            });
+
+            after(function() {
+                sinon.restore();
+            });
+
+            it("should return api correlationId when health checks pass", function() {
+                expect(response.apiCorrelationId).to.exist;
+                expect(response.dataHealth).to.be.true;
+            });
+        });
+    });
+});

@@ -1,0 +1,7 @@
+import Chance from "chance";
+
+const chance = new Chance();
+
+export function mockRev() {
+    return chance.string({ alpha: true, numeric: true, length: 15 });
+}

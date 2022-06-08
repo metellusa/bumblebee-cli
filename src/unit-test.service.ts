@@ -156,7 +156,7 @@ export default class UnitTestService {
         let methodName: string;
         let content: string = "";
 
-        const specDescription = `"${Case.title(`${verb.signature}_${verb.model}_controller`)}"`;
+        const specDescription = `"${Case.title(`${verb.signature}_${verb.model}_adapter`)}"`;
 
         if (verb.isPersistedModel) {
             methodName = `${Case.camel(`${verb.signature}-${verb.model}`)}${isGetById ? "ById" : ""}`;

@@ -1,0 +1,4 @@
+import { Logger } from "@uo/logger";
+import env from "./configs";
+
+export const logger = new Logger(env.logOptions);

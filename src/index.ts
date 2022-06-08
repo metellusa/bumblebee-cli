@@ -14,6 +14,7 @@ import { Path } from "./models/domain/path";
 import ValidationService from "./validation.service";
 import { connectorGenerationQuestion, fileGenerationChoicesQuestion, functionChoice, pageSize, repeatBumblebeeQuestion, separatingLine, swaggerPathQuestion, targetLocationQuestion } from "./utils/cli-utils";
 import { SwaggerValidationLevels } from "./enums/swagger-validation-levels.enum";
+import ConfigurationService from "./configuration.service";
 
 const appVersion = "v1.0.0";
 
@@ -30,7 +31,8 @@ function runBumblebeeCli() {
     functionChoice
   ])
     .then(async (initialPromptAnswers) => {
-      const submitSwaggerResponse: SubmitSwaggerResponse = await ActionsService.submitSwagger(initialPromptAnswers.swaggerPath);
+      const swaggerPath = initialPromptAnswers.swaggerPath;
+      const submitSwaggerResponse: SubmitSwaggerResponse = await ActionsService.submitSwagger(swaggerPath);
       const paths: any[] = [];
 
       submitSwaggerResponse.paths.forEach((pathDetail) => {
@@ -57,7 +59,7 @@ function runBumblebeeCli() {
       }
 
       if (initialPromptAnswers.functionChoice.includes("Validate")) {
-        const pathsValidationErrorsMap: Map<string, string[]> = await ValidationService.validateSwagger(initialPromptAnswers.swaggerPath);
+        const pathsValidationErrorsMap: Map<string, string[]> = await ValidationService.validateSwagger(swaggerPath);
 
         if (pathsValidationErrorsMap.size > 0) {
           pathsValidationErrorsMap.forEach((errors, path) => {
@@ -93,6 +95,7 @@ function runBumblebeeCli() {
 
             let swagger: Swagger = {
               repoName: submitSwaggerResponse.repoName,
+              repoDescription: submitSwaggerResponse.repoDescription,
               components: submitSwaggerResponse.components,
               paths: selectedPaths,
               targetLocation,
@@ -101,21 +104,27 @@ function runBumblebeeCli() {
 
             swagger.targetLocation = answers.targetLocation.replace(/ /g, "");
 
+            console.log("\n\t > Ensuring that you have all relevant project files...");
+            const generatedFiles = await ConfigurationService.generateProjectFiles(swaggerPath, targetLocation, swagger.repoName, swagger.repoDescription);
+            if (generatedFiles.length > 0) {
+              console.log(chalk.cyan(`\n\t\t * ${generatedFiles.length} project files were missing and have been generated!`));
+            }
+
             if (fileGenerationChoices.includes("Models")) {
               ModelsService.generateModelFiles(swagger);
-              console.log("\n\t * Models generated successfully...");
+              console.log("\n\t > Models generated successfully...");
             }
             if (fileGenerationChoices.includes("Source code files")) {
               SourceCodeService.generateCodeFiles(swagger);
-              console.log("\n\t * Source code files generated successfully...");
+              console.log("\n\t > Source code files generated successfully...");
             }
             if (fileGenerationChoices.includes("Unit test files")) {
               UnitTestService.generateUnitTestFiles(swagger);
-              console.log("\n\t * Unit tests generated successfully...");
+              console.log("\n\t > Unit tests generated successfully...");
             }
             if (connectorChoices.length > 0) {
               ConnectorService.generateConnectorFiles(answers.targetLocation, connectorChoices);
-              console.log("\n\t * Connector files generated successfully...");
+              console.log("\n\t > Connector files generated successfully...");
             }
             console.log("\n");
             optionToRepeatBumblebee();
