@@ -3,10 +3,11 @@ import Case from "case";
 import { Decorator } from "../models/domain/decorator";
 import { Parameter } from "../models/domain/parameter";
 import { Verb } from "../models/domain/verb";
-import { BODY, CATCH_ALL, DELETE, GET, HEADER_PARAM, HTTP_CODE, ON_UNDEFINED, PARAM, POST, PUT } from "../constants/decorators.const";
+import { BODY, CATCH_ALL, DELETE, GET, HEADER_PARAM, HTTP_CODE, ON_UNDEFINED, PARAM, POST, PUT, QUERY_PARAM, USE_BEFORE } from "../constants/decorators.const";
 import { ROUTING_CONTROLLERS_LIB, UO_STATUS_CODE_LIB } from "../constants/libraries.const";
 import { DATABASE_ADAPTER_CONFIG_TEMPLATE, REDIS_OPTIONS_TEMPLATE } from "../constants/templates.const";
 import { LOGGER_VAR_NAME } from "../constants/imports.const";
+import { REQUEST_MODEL_CLASS_SUFFIX, WORDS_TO_EXCLUDE } from "../constants/project.const";
 
 /**
  * @description Utilities used within the source-code.service file
@@ -54,10 +55,13 @@ export default class SourceCodeUtils {
     /**
      * @description returns a list of routing-controllers decorators applicable to a given verb
      * @param verb the verb for which the decorator list must be determined
+     * @param requestBodyName the verb's request body name
+     * @param parameters the parameters
      * @returns {Decorator[]} returns the list of decorators
      */
     public static determineRoutingControllerDecorators(verb: Verb, requestBodyName?: string, parameters?: Parameter[]): Decorator[] {
         const path = this.determineControllerUrl(verb.url, "method");
+        const importLib = ROUTING_CONTROLLERS_LIB;
         let decorators: Decorator[] = [];
         let statusCode: number = 0;
 
@@ -66,7 +70,7 @@ export default class SourceCodeUtils {
             decorators.push({
                 name: POST,
                 declaration: `@${POST}("${path}")`,
-                importLib: ROUTING_CONTROLLERS_LIB
+                importLib
             });
             statusCode = verb.isPersistedModel ? 201 : 200;
         }
@@ -74,7 +78,7 @@ export default class SourceCodeUtils {
             decorators.push({
                 name: GET,
                 declaration: `@${GET}("${path}")`,
-                importLib: ROUTING_CONTROLLERS_LIB
+                importLib
             });
             statusCode = 200;
         }
@@ -82,7 +86,7 @@ export default class SourceCodeUtils {
             decorators.push({
                 name: PUT,
                 declaration: `@${PUT}("${path}")`,
-                importLib: ROUTING_CONTROLLERS_LIB
+                importLib
             });
             statusCode = 204;
         }
@@ -90,49 +94,70 @@ export default class SourceCodeUtils {
             decorators.push({
                 name: DELETE,
                 declaration: `@${DELETE}("${path}")`,
-                importLib: ROUTING_CONTROLLERS_LIB
+                importLib
             });
             statusCode = 204;
         }
+
+        decorators.push({
+            name: USE_BEFORE,
+            declaration: `@${USE_BEFORE}(ResortCodeMiddleware)`,
+            importLib
+        })
+
         if ((verb.signature === "post" && verb.isPersistedModel)
             || verb.signature === "put"
             || verb.signature === "delete") {
             decorators.push({
                 name: ON_UNDEFINED,
                 declaration: `@${ON_UNDEFINED}(${statusCode})`,
-                importLib: ROUTING_CONTROLLERS_LIB
+                importLib
             });
         } else {
             decorators.push({
                 name: HTTP_CODE,
                 declaration: `@${HTTP_CODE}(${statusCode})`,
-                importLib: ROUTING_CONTROLLERS_LIB
+                importLib
             })
         }
 
         // Method parameter decorators
         if (parameters) {
             parameters.forEach(parameter => {
+                let paramType: string = "";
+                let name: string = "";
+
+                if (parameter.in === "path") {
+                    paramType = name = PARAM;
+                } else if (parameter.in === "query") {
+                    paramType = `${QUERY_PARAM}({ required: false })`;
+                    name = QUERY_PARAM;
+                } else if (parameter.in === "header") {
+                    paramType = name = HEADER_PARAM;
+                }
+
                 decorators.push({
-                    name: PARAM,
-                    declaration: `@${PARAM}("${Case.camel(parameter.name)}") ${Case.camel(parameter.name)}: ${parameter.type}`,
-                    importLib: ROUTING_CONTROLLERS_LIB
+                    name,
+                    declaration: `@${paramType}("${Case.camel(parameter.name)}") ${Case.camel(parameter.name)}: ${parameter.type}`,
+                    importLib
                 })
             })
         }
 
         if (requestBodyName) {
+            requestBodyName = requestBodyName = requestBodyName.replace(new RegExp(WORDS_TO_EXCLUDE, "gi"), "");
             decorators.push({
                 name: BODY,
-                declaration: `@${BODY}({ required: true }) ${Case.camel(requestBodyName)}: ${Case.pascal(requestBodyName)}`,
-                importLib: ROUTING_CONTROLLERS_LIB
+                declaration: `@${BODY}({ required: true }) ${Case.camel(requestBodyName)}${REQUEST_MODEL_CLASS_SUFFIX}: ${Case.pascal(requestBodyName)}${REQUEST_MODEL_CLASS_SUFFIX}`,
+                importLib
             })
         }
 
+        // Always include correlation-id as a header parameter since it is used for tracking flow of API requests
         decorators.push({
             name: HEADER_PARAM,
             declaration: `@${HEADER_PARAM}("correlation-id") correlationId: string`,
-            importLib: ROUTING_CONTROLLERS_LIB
+            importLib
         })
 
         return decorators;
@@ -160,10 +185,11 @@ export default class SourceCodeUtils {
      * @param databaseModelName the new method attributes
      * @returns {string} returns the newly created database adapter configuration as a string
      */
-    public static createDatabaseAdapterConfig = (databaseModelName: string): string => {
+    public static createDatabaseAdapterConfig = (databaseModelName: string, repoName: string): string => {
         let createdDatabaseAdapterConfig = fs.readFileSync(DATABASE_ADAPTER_CONFIG_TEMPLATE, { encoding: "utf-8" });
 
-        createdDatabaseAdapterConfig = createdDatabaseAdapterConfig.replace(/databaseModelName/g, databaseModelName);
+        createdDatabaseAdapterConfig = createdDatabaseAdapterConfig.replace(/<databaseModelName>/g, databaseModelName)
+        .replace(/<repoName>/g, repoName);
 
         return createdDatabaseAdapterConfig;
     }

@@ -7,6 +7,7 @@ import CommonUtils from "./common-utils";
 import { Field } from "../models/domain/field";
 import { FIELD_TEMPLATE } from "../constants/templates.const";
 import { CLASS_TRANSFORMER_LIB, CLASS_VALIDATOR_LIB, UO_TRANSFORM_DECORATORS_LIB, UO_VALIDATION_DECORATOR_LIB } from "../constants/libraries.const";
+import { ENTITY_MODEL_CLASS_SUFFIX, REQUEST_MODEL_CLASS_SUFFIX, RESPONSE_MODEL_CLASS_SUFFIX } from "../constants/project.const";
 
 /**
  * @description Utilities used within the models.service service file
@@ -19,6 +20,15 @@ export default class ModelsUtils {
     */
     public static determineTransformerDecorators(property: Property, modelType: "request" | "response" | "entity" | "database"): Decorator[] {
         let decorators: Decorator[] = [];
+        let classSuffix: string = "";
+
+        if (modelType === "request") {
+            classSuffix = REQUEST_MODEL_CLASS_SUFFIX;
+        } else if (modelType === "response") {
+            classSuffix = RESPONSE_MODEL_CLASS_SUFFIX;
+        } else if (modelType === "entity") {
+            classSuffix = ENTITY_MODEL_CLASS_SUFFIX;
+        }
 
         if (modelType === "response" || modelType === "entity" || modelType === "database") {
             if (property.isPrimary) {
@@ -71,18 +81,18 @@ export default class ModelsUtils {
                     importLib: UO_TRANSFORM_DECORATORS_LIB
                 })
             }
-            if (CommonUtils.isEntityObject(property) && !property.type.includes("[]")) {
+            if (CommonUtils.isObjectField(property) && !property.type.includes("[]")) {
                 decorators.push({
                     name: TRANSFORM_OBJECT,
-                    declaration: `@${TRANSFORM_OBJECT}("${property.name}", ${Case.pascal(property.name)}, undefined, [""] )`,
+                    declaration: `@${TRANSFORM_OBJECT}("${property.name}", ${Case.pascal(property.name)}${classSuffix}, undefined, [""] )`,
                     importLib: UO_TRANSFORM_DECORATORS_LIB
                 })
             }
             if (property.type.includes("[]")) {
-                if (CommonUtils.isEntityObject(property)) {
+                if (CommonUtils.isObjectField(property)) {
                     decorators.push({
                         name: TRANSFORM_OBJECT_ARRAY,
-                        declaration: `@${TRANSFORM_OBJECT_ARRAY}("${property.name}", ${Case.pascal(property.name)}, [], [""] )`,
+                        declaration: `@${TRANSFORM_OBJECT_ARRAY}("${property.name}", ${Case.pascal(property.name)}${modelType === "entity" ? ENTITY_MODEL_CLASS_SUFFIX : ""}, [], [""] )`,
                         importLib: UO_TRANSFORM_DECORATORS_LIB
                     })
                 } else if (property.type.includes("string")) {
@@ -107,10 +117,10 @@ export default class ModelsUtils {
             }
         }
 
-        if (CommonUtils.isEntityObject(property)) {
+        if (CommonUtils.isObjectField(property)) {
             decorators.push({
                 name: TYPE,
-                declaration: `@${TYPE}(() => ${property.type.replace("[]", "")})`,
+                declaration: `@${TYPE}(() => ${property.type.replace("[]", "")}${classSuffix})`,
                 importLib: CLASS_TRANSFORMER_LIB,
             });
         }
@@ -226,7 +236,7 @@ export default class ModelsUtils {
             });
         }
 
-        if (CommonUtils.isEntityObject(property)) {
+        if (CommonUtils.isObjectField(property)) {
             decorators.push({
                 name: IS_OBJECT,
                 declaration: `@${IS_OBJECT}()`,
@@ -246,11 +256,12 @@ export default class ModelsUtils {
         const empty = "";
         const fieldDecorators = field.decorators ? field.decorators.join("\n") : empty;
         let createdField = fs.readFileSync(FIELD_TEMPLATE, { encoding: "utf-8" });
+        const fieldTypeWithSuffix = field.typeSuffix ? field.type.replace(/(\[\])?$/, `${field.typeSuffix}$1`) : field.type;
 
-        createdField = createdField.replace(/fieldName/g, field.name)
-            .replace(/fieldType/g, field.type)
-            .replace(/fieldDescription/g, field.description)
-            .replace(/fieldDecorators/g, fieldDecorators)
+        createdField = createdField.replace(/<fieldName>/g, field.name)
+            .replace(/<fieldType>/g, fieldTypeWithSuffix)
+            .replace(/<fieldDescription>/g, field.description)
+            .replace(/<fieldDecorators>/g, fieldDecorators)
 
         if (additionalReplaces) {
             additionalReplaces.forEach(target => {

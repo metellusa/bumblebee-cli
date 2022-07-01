@@ -5,6 +5,7 @@ export const REDIS_CONNECTOR = "RedisConnector";
 export const REDIS_OPTIONS = "RedisOptionsWithOverridesModel";
 export const DOCUMENT_INSERT_RESPONSE = "DocumentInsertResponse";
 export const RESORT_AREA_CODE = "ResortAreaCode";
+export const RESORT_CODE_MIDDLEWARE = "ResortCodeMiddleware";
 export const LOGGER_VAR_NAME = "logger";
 export const ENV_VAR_NAME = "env";
 export const EXPECT = "expect";

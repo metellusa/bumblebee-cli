@@ -5,6 +5,7 @@ export class Method {
     public operationId: string = "";
     public params?: string;
     public paramsDescriptions?: string;
+    public requestBody?: string;
     public returnType?: string;
     public returnTypeDescr?: string;
     public decorators?: string[];

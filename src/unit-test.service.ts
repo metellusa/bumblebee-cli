@@ -66,7 +66,7 @@ export default class UnitTestService {
             }
         } else {
             const businessFunction = verb.url.substring(verb.url.lastIndexOf("/") + 1, verb.url.length);
-            serviceSpecFile = `${verb.signature}-${businessFunction}.${SERVICE_TEST_FILE_SUFFIX}`;
+            serviceSpecFile = `${verb.signature}-${Case.kebab(businessFunction)}.${SERVICE_TEST_FILE_SUFFIX}`;
             methodName = `${Case.camel(`${verb.signature}-${businessFunction}`)}`;
         }
 

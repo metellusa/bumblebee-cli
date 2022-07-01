@@ -12,7 +12,7 @@ import figlet from "figlet";
 import ConnectorService from "./connector.service";
 import { Path } from "./models/domain/path";
 import ValidationService from "./validation.service";
-import { connectorGenerationQuestion, fileGenerationChoicesQuestion, functionChoice, pageSize, repeatBumblebeeQuestion, separatingLine, swaggerPathQuestion, targetLocationQuestion } from "./utils/cli-utils";
+import { connectorGenerationQuestion, fileGenerationChoicesQuestion, functionChoice, repeatBumblebeeQuestion, separatingLine, swaggerPathQuestion, targetLocationQuestion } from "./utils/cli-utils";
 import { SwaggerValidationLevels } from "./enums/swagger-validation-levels.enum";
 import ConfigurationService from "./configuration.service";
 
@@ -104,10 +104,12 @@ function runBumblebeeCli() {
 
             swagger.targetLocation = answers.targetLocation.replace(/ /g, "");
 
-            console.log("\n\t > Ensuring that you have all relevant project files...");
-            const generatedFiles = await ConfigurationService.generateProjectFiles(swaggerPath, targetLocation, swagger.repoName, swagger.repoDescription);
-            if (generatedFiles.length > 0) {
-              console.log(chalk.cyan(`\n\t\t * ${generatedFiles.length} project files were missing and have been generated!`));
+            if (fileGenerationChoices.includes("Project files")) {
+              console.log("\n\t > Ensuring that you have all relevant project files...");
+              const generatedFiles = await ConfigurationService.generateProjectFiles(swaggerPath, targetLocation, swagger.repoName, swagger.repoDescription);
+              if (generatedFiles.length > 0) {
+                console.log(chalk.cyan(`\n\t\t * ${generatedFiles.length} project files were missing and have been generated!`));
+              }
             }
 
             if (fileGenerationChoices.includes("Models")) {

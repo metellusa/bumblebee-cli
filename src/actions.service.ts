@@ -17,7 +17,7 @@ export default class ActionsService {
     private static inputYaml: any;
 
     /**
-     * @description Parses a given swagger and converts its elements into domain data models 
+     * @description Parses a given swagger and converts its elements into domain data models
      * @param filePath the file path of the swagger to be parsed
      * @returns {SubmitSwaggerResponse} returns the parsed swagger
      */
@@ -36,40 +36,56 @@ export default class ActionsService {
 
             let paths: Path[] = [];
             let components = new Map<string, object>();
-            let validationErrors = [];
 
-            const addVerbBodyToComponents = (reference: string): string | undefined => {
-                if (reference) {
-                    reference = reference.substring(2, reference.length).replace(/\//g, '.');
-                    const body = CommonUtils.getField(this.inputYaml, reference);
-                    const name = reference.replace(OBJECTS_REFERENCE, "");
+            const addVerbBodyToComponents = (verbBody: object, type: VerbBodyType, operationId: string): string => {
+                // The verb body object is ideally referenced in the swagger. If it is not, use available object
+                let bodyRef: string | undefined = CommonUtils.searchField(verbBody, "$ref");
+                let body: string | undefined = CommonUtils.searchField(verbBody, "schema");
+                // If the body name is not available, it must be inferred
+                const inferredName: string = `${Case.snake(operationId)}_${type}`;
+                let bodyName: string = bodyRef ? bodyRef.substring(2, bodyRef.length).replace(/\//g, '.') : inferredName;
 
-                    if (!components.has(name)) {
-                        components.set(name, this.createVerbBody(body, name));
+                if (bodyRef) {
+                    bodyRef = bodyRef.substring(2, bodyRef.length).replace(/\//g, '.');
+                    bodyName = bodyRef.replace(OBJECTS_REFERENCE, "");
+
+                    if (!components.has(bodyName)) {
+                        components.set(bodyName, this.createVerbBody(CommonUtils.getField(this.inputYaml, bodyRef), bodyName, type));
                     }
-
-                    return name;
+                } else if (body) {
+                    if (!components.has(bodyName)) {
+                        components.set(bodyName, this.createVerbBody(body, bodyName, type));
+                    }
                 }
+
+                return bodyName;
             }
-            const addParametersToComponents = (referenceObjs: object[]): string[] | undefined => {
-                if (referenceObjs) {
-                    let names: string[] = [];
-                    referenceObjs.forEach(referenceObj => {
-                        let reference: string = CommonUtils.getField(referenceObj, "$ref");
-                        if (reference) {
-                            reference = reference.substring(2, reference.length).replace(/\//g, '.');
-                            const parameter = CommonUtils.getField(this.inputYaml, reference);
-                            const name = reference.replace(PARAMETERS_REFERENCE, "");
 
-                            if (!components.has(name)) {
-                                components.set(name, this.createParameter(parameter));
-                            }
-                            names.push(name);
+            const addParametersToComponents = (paramObjs: object[]): string[] => {
+                let names: string[] = [];
+                paramObjs.forEach(paramObj => {
+                    // The parameter object is ideally referenced in the swagger. If it is not, use available object
+                    let reference: string = CommonUtils.getField(paramObj, "$ref");
+                    let paramName: string = CommonUtils.getField(paramObj, "name");
+
+                    if (reference) {
+                        reference = reference.substring(2, reference.length).replace(/\//g, '.');
+                        const parameter = CommonUtils.getField(this.inputYaml, reference);
+                        const name = reference.replace(PARAMETERS_REFERENCE, "");
+
+                        if (!components.has(name)) {
+                            components.set(name, this.createParameter(parameter));
                         }
-                    });
+                        names.push(name);
+                    } else if (paramName) {
+                        if (!components.has(paramName)) {
+                            components.set(paramName, this.createParameter(paramObj));
+                        }
+                        names.push(paramName);
+                    }
+                });
 
-                    return names;
-                }
+                return names;
             }
 
             if (this.inputYaml.paths) {
@@ -79,41 +95,36 @@ export default class ActionsService {
                     for (const [rawVerb, rawVerbData] of Object.entries(pathData as object)) {
                         if (CommonUtils.isValidVerb(rawVerb)) {
                             const verb = this.createVerb(path, rawVerb, rawVerbData);
+                            const requestBody = CommonUtils.getField(rawVerbData, "requestBody");
+                            const responseBody = CommonUtils.getField(rawVerbData, "responses.200");
+                            const parameters = CommonUtils.getField(rawVerbData, "parameters");
 
-                            // If the verb has requestBody, create a domain verbBody object and add it to components map
-                            if (CommonUtils.getField(rawVerbData, "requestBody")) {
-                                const requestBodyRef = CommonUtils.getField(rawVerbData, 'requestBody.content.application/json.schema.$ref');
+                            // If the verb has a requestBody, create a domain verbBody object and add it to components map
+                            if (requestBody) {
+                                const bodyName = addVerbBodyToComponents(requestBody, VerbBodyType.request, verb.operationId);
 
-                                const bodyName = addVerbBodyToComponents(requestBodyRef);
                                 if (bodyName) {
-                                    verb.requestBodyRef = bodyName
-                                } else {
-                                    validationErrors.push(`Request body: "${requestBodyRef}" for path: ${path} must be referenced under #${OBJECTS_REFERENCE.replace(/./g, "/")}`);
+                                    verb.requestBodyRef = bodyName;
                                 }
                             }
 
-                            // If the verb has responseBody, create a domain verbBody object and add it to components map
-                            if (CommonUtils.getField(rawVerbData, "responses.200")) {
-                                const responseBodyRef = CommonUtils.getField(rawVerbData, 'responses.200.content.application/json.schema.$ref')
-                                    || CommonUtils.getField(rawVerbData, 'responses.200.content.application/json.schema.items.$ref');
-                                const bodyName = addVerbBodyToComponents(responseBodyRef);
+                            // If the verb has a responseBody, create a domain verbBody object and add it to components map
+                            if (responseBody) {
+                                const bodyName = addVerbBodyToComponents(responseBody, VerbBodyType.response, verb.operationId);
 
                                 if (bodyName) {
-                                    verb.responseBodyRef = bodyName
-                                } else {
-                                    validationErrors.push(`Request body: "${responseBodyRef}" for path ${path} must be referenced under #${OBJECTS_REFERENCE.replace(/./g, "/")}`);
+                                    verb.responseBodyRef = bodyName;
                                 }
                             }
-                            // If the verb has parameters, create a domain parameter object and add it to components map
-                            if (CommonUtils.getField(rawVerbData, "parameters")) {
-                                const parameterRefs = CommonUtils.getField(rawVerbData, "parameters");
-                                const parameterNames = addParametersToComponents(parameterRefs);
+
+                            // If the verb has parameters, create domain parameter objects and add them to components map
+                            if (parameters) {
+                                const parameterNames = addParametersToComponents(parameters);
                                 if (parameterNames) {
                                     verb.parameters = parameterNames;
-                                } else {
-                                    validationErrors.push(`Parameters for ${path} must be referenced under #${PARAMETERS_REFERENCE.replace(/./g, "/")}`);
                                 }
                             }
+
                             verbs.push(verb);
                         }
                     }
@@ -147,7 +158,7 @@ export default class ActionsService {
             const tag = Case.lower(verbFields.tags[0]);
             const model = pluralize.singular(tag.substring(0, tag.indexOf(" ("))) || tag;
 
-            verb.signature = signature;
+            verb.signature = Case.kebab(signature);
             verb.tag = tag;
             verb.url = url;
             verb.operationId = verbFields.operationId;
@@ -166,20 +177,11 @@ export default class ActionsService {
      * @param name the body name
      * @returns {VerbBody} returns a domain VerbBody object
      */
-    private static createVerbBody(body: any, name: string): VerbBody {
+    private static createVerbBody(body: any, name: string, type: VerbBodyType): VerbBody {
         let properties: Property[] = [];
-        let type: VerbBodyType;
-        const bodyRequiredFields = CommonUtils.getField(body, 'required') || [];
+        const bodyRequiredFields = CommonUtils.searchField(body, 'required') || [];
         const bodyProperties = CommonUtils.getField(body, 'properties') || [];
         const model = Case.snake(pluralize.singular(name.replace(`-${VerbBodyType.model}`, "")));
-
-        if (name.endsWith(VerbBodyType.request)) {
-            type = VerbBodyType.request;
-        } else if (name.endsWith(VerbBodyType.response)) {
-            type = VerbBodyType.response;
-        } else {
-            type = VerbBodyType.model;
-        }
 
         for (const propertyName in bodyProperties) {
             const isRequired = bodyRequiredFields.includes(propertyName);
@@ -227,7 +229,7 @@ export default class ActionsService {
         };
 
         // Check if there are any children property fields
-        const childPropertyFields = CommonUtils.getField(propertyFields, "properties") || CommonUtils.getField(propertyFields, "items.properties");
+        const childPropertyFields = CommonUtils.searchField(propertyFields, "properties");
 
         if (childPropertyFields) {
             let properties = [];
@@ -242,7 +244,7 @@ export default class ActionsService {
                     childPropertyObj = CommonUtils.getField(this.inputYaml, childPropertyFieldRef);
                 }
 
-                const isChildPropertyRequired = childPropertyRequiredFields.includes(childProperty) || true;
+                const isChildPropertyRequired = childPropertyRequiredFields.includes(childProperty);
 
                 properties.push(this.createProperty(childProperty, childPropertyObj, isChildPropertyRequired));
             }

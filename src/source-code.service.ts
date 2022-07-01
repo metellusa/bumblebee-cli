@@ -1,7 +1,7 @@
 import fs from "fs";
 import { Swagger } from "./models/domain/swagger";
 import {
-    DATABASE_ADAPTERS_DIR, API_MODELS_DIR, APIS_DIR, CONTROLLER_FILE_SUFFIX, DATABASE_ADAPTER_FILE_SUFFIX, SERVICE_FILE_SUFFIX, ENTITY_MODELS_DIR, CORRELATION_ID_PARAM_DESCR, ADAPTER_MODELS_DIR, APP_FILE_PATH, LOGGER_FILE_PATH, ENV_FILE_PATH, REDIS_ADAPTERS_DIR, REDIS_ADAPTER_FILE_SUFFIX, RESORT_AREA_CODE_ENUM_PATH
+    DATABASE_ADAPTERS_DIR, API_MODELS_DIR, APIS_DIR, CONTROLLER_FILE_SUFFIX, DATABASE_ADAPTER_FILE_SUFFIX, SERVICE_FILE_SUFFIX, ENTITY_MODELS_DIR, CORRELATION_ID_PARAM_DESCR, ADAPTER_MODELS_DIR, APP_FILE_PATH, LOGGER_FILE_PATH, ENV_FILE_PATH, REDIS_ADAPTERS_DIR, REDIS_ADAPTER_FILE_SUFFIX, RESORT_AREA_CODE_ENUM_PATH, RESORT_AREA_CODE_MIDDLEWARE_PATH, REQUEST_MODEL_CLASS_SUFFIX, RESPONSE_MODEL_CLASS_SUFFIX, WORDS_TO_EXCLUDE
 } from "./constants/project.const";
 import Case from "case";
 import { Verb } from "./models/domain/verb";
@@ -14,10 +14,9 @@ import { MethodParamDecorator } from "./enums/method-param-decorator.enum";
 import SourceCodeUtils from "./utils/source-code-utils";
 import { VerbBody } from "./models/domain/verb-body";
 import { FileContent } from "./models/domain/file-content";
-import { VerbBodyType } from "./enums/verb-body-type.enum";
 import { NANO, ROUTING_CONTROLLERS_LIB, UO_COUCHDB_CONNECTOR_LIB, UO_REDIS_CONNECTOR_LIB } from "./constants/libraries.const";
 import { JSON_CONTROLLER } from "./constants/decorators.const";
-import { COUCHDB_CONNECTOR, DOCUMENT_INSERT_RESPONSE, ENV_VAR_NAME, LOGGER_VAR_NAME, REDIS_CONNECTOR, REDIS_OPTIONS, RESORT_AREA_CODE } from "./constants/imports.const";
+import { COUCHDB_CONNECTOR, DOCUMENT_INSERT_RESPONSE, ENV_VAR_NAME, LOGGER_VAR_NAME, REDIS_CONNECTOR, REDIS_OPTIONS, RESORT_AREA_CODE, RESORT_CODE_MIDDLEWARE } from "./constants/imports.const";
 
 export default class SourceCodeService {
 
@@ -69,7 +68,7 @@ export default class SourceCodeService {
 
                     // Generate the database adapters if any
                     if (verb.isPersistedModel) {
-                        this.generateDatabaseAdapter(verb, swagger.targetLocation, parameters);
+                        this.generateDatabaseAdapter(verb, swagger.targetLocation, swagger.repoName, parameters);
                     }
                 });
             });
@@ -105,28 +104,28 @@ export default class SourceCodeService {
             }
         } else {
             const businessFunction = verb.url.substring(verb.url.lastIndexOf("/") + 1, verb.url.length);
-            serviceFile = `${verb.signature}-${businessFunction}.${SERVICE_FILE_SUFFIX}`;
+            serviceFile = `${verb.signature}-${Case.kebab(businessFunction)}.${SERVICE_FILE_SUFFIX}`;
             className = `${Case.pascal(`${verb.signature}_${businessFunction}_service`)}`;
             methodName = `${Case.camel(`resolve_${verb.signature}_${businessFunction}`)}`;
         }
 
         if (requestBodyName) {
-            const requestTypeModelPath = !requestBodyName.endsWith(VerbBodyType.request) ? `${ENTITY_MODELS_DIR}/${Case.kebab(requestBodyName)}`
-                : `${API_MODELS_DIR}/${Case.kebab(verb.tag)}/${Case.kebab(requestBodyName)}`;
+            requestBodyName = requestBodyName.replace(new RegExp(WORDS_TO_EXCLUDE, "gi"), "");
+            const requestTypeModelPath = `${API_MODELS_DIR}/${Case.kebab(verb.tag)}/${Case.kebab(requestBodyName)}.request.model`;
             const modelRelativePath = path.relative(`${APIS_DIR}/${Case.kebab(verb.tag)}`, `${requestTypeModelPath}`).replace(/\\/g, "/");
 
-            requestBodyName = Case.pascal(requestBodyName);
-            classImports.add(`import ${requestBodyName} from "${modelRelativePath}";`);
-            methodParams.push(`${Case.camel(requestBodyName)}: ${requestBodyName}`);
-            methodDescriptionParams.push(`${Case.camel(requestBodyName)} the ${Case.sentence(requestBodyName)} body`);
+            requestBodyName = `${Case.camel(requestBodyName)}${REQUEST_MODEL_CLASS_SUFFIX}`;
+            classImports.add(`import ${Case.pascal(requestBodyName)} from "${modelRelativePath}";`);
+            methodParams.push(`${requestBodyName}: ${Case.pascal(requestBodyName)}`);
+            methodDescriptionParams.push(`${requestBodyName} the ${Case.sentence(requestBodyName)} body`);
         }
 
         if (responseBodyName) {
-            const returnTypeModelPath = !responseBodyName.endsWith(VerbBodyType.response) ? `${ENTITY_MODELS_DIR}/${Case.kebab(responseBodyName)}`
-                : `${API_MODELS_DIR}/${Case.kebab(verb.tag)}/${Case.kebab(responseBodyName || "")}`;
+            responseBodyName = responseBodyName.replace(new RegExp(WORDS_TO_EXCLUDE, "gi"), "");
+            const returnTypeModelPath = `${API_MODELS_DIR}/${Case.kebab(verb.tag)}/${Case.kebab(responseBodyName)}.response.model`;
             const modelRelativePath = path.relative(`${APIS_DIR}/${Case.kebab(verb.tag)}/`, `${returnTypeModelPath}`).replace(/\\/g, "/");
 
-            responseBodyName = Case.pascal(responseBodyName);
+            responseBodyName = `${Case.pascal(responseBodyName)}${RESPONSE_MODEL_CLASS_SUFFIX}`;
             classImports.add(`import ${responseBodyName} from "${modelRelativePath}";`);
         }
 
@@ -144,6 +143,7 @@ export default class SourceCodeService {
             name: methodName,
             description: verb.summary || Case.title(`the ${Case.sentence(methodName).toLocaleLowerCase()} method`),
             paramsDescriptions: CommonUtils.formatMethodDescrParams(methodDescriptionParams),
+            requestBody: requestBodyName,
             returnType: responseBodyName,
             params: methodParams.join(",\n "),
             operationId: `"${verb.operationId}"`
@@ -213,20 +213,21 @@ export default class SourceCodeService {
         }
 
         if (requestBodyName) {
-            const requestTypeModelPath = !requestBodyName.endsWith(VerbBodyType.request) ? `${ENTITY_MODELS_DIR}/${Case.kebab(requestBodyName)}`
-                : `${API_MODELS_DIR}/${Case.kebab(verb.tag)}/${Case.kebab(requestBodyName)}`;
+            requestBodyName = requestBodyName.replace(new RegExp(WORDS_TO_EXCLUDE, "gi"), "");
+            const requestTypeModelPath = `${API_MODELS_DIR}/${Case.kebab(verb.tag)}/${Case.kebab(requestBodyName)}.request.model`;
             const modelRelativePath = path.relative(`${APIS_DIR}/${Case.kebab(verb.tag)}`, `${requestTypeModelPath}`).replace(/\\/g, "/");
 
+            requestBodyName = `${Case.camel(requestBodyName)}${REQUEST_MODEL_CLASS_SUFFIX}`;
             classImports.add(`import ${Case.pascal(requestBodyName)} from "${modelRelativePath}";`);
-            methodDescriptionParams.push(`${Case.camel(requestBodyName)} the ${Case.sentence(requestBodyName)} body`);
+            methodDescriptionParams.push(`${requestBodyName} the ${Case.sentence(requestBodyName)} body`);
         }
 
         if (responseBodyName) {
-            const returnTypeModelPath = !responseBodyName.endsWith(VerbBodyType.response) ? `${ENTITY_MODELS_DIR}/${Case.kebab(responseBodyName)}`
-                : `${API_MODELS_DIR}/${Case.kebab(verb.tag)}/${Case.kebab(responseBodyName)}`;
+            responseBodyName = responseBodyName.replace(new RegExp(WORDS_TO_EXCLUDE, "gi"), "");
+            const returnTypeModelPath = `${API_MODELS_DIR}/${Case.kebab(verb.tag)}/${Case.kebab(responseBodyName)}.response.model`;
             const modelRelativePath = path.relative(`${APIS_DIR}/${Case.kebab(verb.tag)}`, `${returnTypeModelPath}`).replace(/\\/g, "/");
 
-            responseBodyName = Case.pascal(responseBodyName);
+            responseBodyName = `${Case.pascal(responseBodyName)}${RESPONSE_MODEL_CLASS_SUFFIX}`;
             classImports.add(`import ${responseBodyName} from "${modelRelativePath}";`);
             if (verb.signature === "get" && !isGetById) {
                 responseBodyName = `${responseBodyName}[]`;
@@ -236,6 +237,7 @@ export default class SourceCodeService {
         const method = CommonUtils.createMethod({
             name: methodName,
             description: verb.summary || Case.title(`the ${Case.sentence(methodName)} method`),
+            requestBody: requestBodyName,
             returnType: responseBodyName,
             params: methodParamDecoratorDeclarations.join(",\n "),
             paramsDescriptions: CommonUtils.formatMethodDescrParams(methodDescriptionParams),
@@ -245,6 +247,9 @@ export default class SourceCodeService {
 
         const appFileRelativePath = path.relative(`${APIS_DIR}/${Case.kebab(verb.tag)}`, `${APP_FILE_PATH}`.replace(".ts", "")).replace(/\\/g, "/");
         classImports.add(`import { ${LOGGER_VAR_NAME} } from "${appFileRelativePath}";`);
+
+        const resortAreaCodeMiddlewareRelativePath = path.relative(`${APIS_DIR}/${Case.kebab(verb.tag)}`, `${RESORT_AREA_CODE_MIDDLEWARE_PATH}`.replace(".ts", "")).replace(/\\/g, "/");
+        classImports.add(`import ${RESORT_CODE_MIDDLEWARE} from "${resortAreaCodeMiddlewareRelativePath}";`);
 
         CommonUtils.createOrUpdateClassFile({
             folder: controllerFolder,
@@ -266,7 +271,7 @@ export default class SourceCodeService {
      * @param parameters the list of parameters
      * @returns {void} nothing returned
      */
-    private static async generateDatabaseAdapter(verb: Verb, directory: string, parameters?: Parameter[]) {
+    private static async generateDatabaseAdapter(verb: Verb, directory: string, repoName: string, parameters?: Parameter[]) {
         const databaseAdapterFolder = `${directory}/${DATABASE_ADAPTERS_DIR}/`;
         const databaseAdapterFile = `${Case.kebab(verb.model)}-${DATABASE_ADAPTER_FILE_SUFFIX}`;
         const isGetById = verb.signature === "get" && verb.url.charAt(verb.url.length - 1) === "}";
@@ -314,7 +319,10 @@ export default class SourceCodeService {
             })
         }
 
-        const databaseAdapterConfig = SourceCodeUtils.createDatabaseAdapterConfig(Case.pascal(`${verb.model}-database`));
+        const databaseAdapterConfig = SourceCodeUtils.createDatabaseAdapterConfig(Case.pascal(`${verb.model}-database`), Case.camel(repoName));
+
+        methodParams.push("correlationId: string");
+        methodDescriptionParams.push(CORRELATION_ID_PARAM_DESCR);
 
         const method = CommonUtils.createMethod({
             name: methodName,

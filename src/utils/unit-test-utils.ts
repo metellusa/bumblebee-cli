@@ -20,9 +20,9 @@ export default class UnitTestUtils {
         const empty = "";
         let createdSpec = fs.readFileSync(SPEC_FILE_TEMPLATE, { encoding: "utf-8" });
 
-        createdSpec = createdSpec.replace(/specDescription/g, spec.description)
-            .replace(/specContent/g, spec.content || empty)
-            .replace(/specImports/g, spec.imports || empty);
+        createdSpec = createdSpec.replace(/<specDescription>/g, spec.description)
+            .replace(/<specContent>/g, spec.content || empty)
+            .replace(/<specImports>/g, spec.imports || empty);
 
         if (additionalReplaces) {
             additionalReplaces.forEach(target => {
@@ -44,8 +44,8 @@ export default class UnitTestUtils {
         const empty = "";
         let createdDescribeBlock = fs.readFileSync(DESCRIBE_BLOCK_TEMPLATE, { encoding: "utf-8" });
 
-        createdDescribeBlock = createdDescribeBlock.replace(/description/g, describeBlock.description)
-            .replace(/content/g, describeBlock.content || empty);
+        createdDescribeBlock = createdDescribeBlock.replace(/<description>/g, describeBlock.description)
+            .replace(/<content>/g, describeBlock.content || empty);
 
         if (additionalReplaces) {
             additionalReplaces.forEach(target => {

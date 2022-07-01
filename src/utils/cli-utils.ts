@@ -67,6 +67,9 @@ export const fileGenerationChoicesQuestion = {
         },
         {
             name: "Unit test files",
+        },
+        {
+            name: "Project files",
         }
     ],
     validate(answer: string) {

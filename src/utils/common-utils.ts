@@ -23,10 +23,10 @@ export default class CommonUtils {
     }
 
     /**
-     * @description Traverses a given object to look for a particular field
-     * @param object the object to traverse
-     * @param path the path of the field desired
-     * @returns returns the field if it is found in target object. Else returns undefined
+     * @description Returns a field's value that is nested within a given object 
+     * @param object the target object
+     * @param path the path of the target field within the target object
+     * @returns returns the field's value or undefined if it doesn't exist
      */
     public static getField = (object: any, path: string) => {
         if (object == null) {
@@ -44,6 +44,38 @@ export default class CommonUtils {
     };
 
     /**
+     * @description Returns a field's value that is nested within a given object 
+     * @param object the object to search through
+     * @param targetProperty the target property within the object
+     * @returns returns the field's value or undefined if it doesn't exist
+     */
+    public static searchField = (object: any, targetProperty: string): any => {
+        let result = undefined;
+        if (object instanceof Array) {
+            for (var i = 0; i < object.length; i++) {
+                result = this.searchField(object[i], targetProperty);
+                if (result) {
+                    break;
+                }
+            }
+        }
+        else {
+            for (var prop in object) {
+                if (prop === targetProperty) {
+                    return object[prop];
+                }
+                if (object[prop] instanceof Object || object[prop] instanceof Array) {
+                    result = this.searchField(object[prop], targetProperty);
+                    if (result) {
+                        break;
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
      * @description Creates a directory in a given path if it does not yet exist
      * @param targetPath the target path
      * @returns {void} nothing returned
@@ -55,11 +87,11 @@ export default class CommonUtils {
     }
 
     /**
-     * @description determined whether a property is an entity object or not
+     * @description determined whether a property is an object field
      * @param property the property
      * @returns {boolean} returns a boolean value
      */
-    public static isEntityObject = (property: Property) => {
+    public static isObjectField = (property: Property) => {
         return property.type.replace('[]', '') === Case.pascal(property.name);
     }
 
@@ -73,12 +105,12 @@ export default class CommonUtils {
         const classDecorators = newClass.decorators ? newClass.decorators.join("\n") : empty;
         let createdClass = fs.readFileSync(newClass.decorators ? DECORATED_CLASS_TEMPLATE : CLASS_TEMPLATE, { encoding: "utf-8" });
 
-        createdClass = createdClass.replace(/className/g, newClass.name)
-            .replace(/classDescription/g, newClass.description)
-            .replace(/classContent/g, newClass.content || empty)
-            .replace(/classImports/g, newClass.imports || empty)
-            .replace(/classDecorators/g, classDecorators)
-            .replace(/classType/g, newClass.type);
+        createdClass = createdClass.replace(/<className>/g, newClass.name)
+            .replace(/<classDescription>/g, newClass.description)
+            .replace(/<classContent>/g, newClass.content || empty)
+            .replace(/<classImports>/g, newClass.imports || empty)
+            .replace(/<classDecorators>/g, classDecorators)
+            .replace(/<classType>/g, newClass.type);
 
         return createdClass;
     }
@@ -93,8 +125,8 @@ export default class CommonUtils {
 
         let createdPlainFile = fs.readFileSync(PLAIN_FILE_TEMPLATE, { encoding: "utf-8" });
 
-        createdPlainFile = createdPlainFile.replace(/imports/g, imports)
-            .replace(/content/g, content);
+        createdPlainFile = createdPlainFile.replace(/<imports>/g, imports)
+            .replace(/<content>/g, content);
 
         return createdPlainFile;
     }
@@ -137,14 +169,15 @@ export default class CommonUtils {
         const methodParams = method.params ? method.params : empty;
         let createdMethod = fs.readFileSync(method.decorators ? DECORATED_METHOD_TEMPLATE : METHOD_TEMPLATE, { encoding: "utf-8" });
 
-        createdMethod = createdMethod.replace(/methodName/g, method.name)
-            .replace(/methodDescription/g, method.description)
-            .replace(/methodParamsDescription/g, methodParamsDescription)
-            .replace(/methodReturnType/g, method.returnType || "void")
-            .replace(/methodReturnDescr/g, `returns ${method.returnType ? `a ${method.returnType} object` : "nothing"}`)
-            .replace(/methodDecorators/g, methodDecorators)
-            .replace(/methodParams/g, methodParams)
-            .replace(/methodOperationId/g, method.operationId);
+        createdMethod = createdMethod.replace(/<methodName>/g, method.name)
+            .replace(/<methodDescription>/g, method.description)
+            .replace(/<methodParamsDescription>/g, methodParamsDescription)
+            .replace(/<methodReturnType>/g, method.returnType || "void")
+            .replace(/<methodReturnDescr>/g, `returns ${method.returnType ? `a ${method.returnType} object` : "nothing"}`)
+            .replace(/<methodDecorators>/g, methodDecorators)
+            .replace(/<methodParams>/g, methodParams)
+            .replace(/<methodOperationId>/g, method.operationId)
+            .replace(/<methodRequestBody>/g, method.requestBody || "{}");
 
         if (additionalReplaces) {
             additionalReplaces.forEach(target => {

@@ -1,15 +1,21 @@
 {
-  "name": "bumblebee-cli",
-  "version": "1.0.0",
-  "description": "CLI to generate source and spec files from a swagger",
+  "name": "@uo/bumblebee",
+  "version": "1.0.2-alpha.2",
+  "description": "CLI to generate source code and spec files from a swagger",
   "main": "./lib/index.js",
-  "bin": {
-    "bumblebee-cli": "./lib/index.js"
-  },
+  "files": [
+    "lib/**/*"
+  ],
   "scripts": {
     "start": "nodemon --watch 'src/**/*.ts' --exec \"npx ts-node\" src/index.ts",
     "build": "tsc -p .",
-    "refresh": "rm -rf ./node_modules ./package-lock.json && npm install"
+    "refresh": "rm -rf ./node_modules ./package-lock.json && npm install",
+    "pre-publish": "npm i && npm run build",
+    "publish-alpha": "npm i && npm run build && npm version prerelease --preid=alpha && npm publish --tag alpha",
+    "publish-beta": "npm run pre-publish && npm version prerelease --preid=beta && npm publish --tag beta",
+    "publish-patch": "npm run pre-publish && npm version patch && npm publish",
+    "publish-minor": "npm run pre-publish && npm version minor && npm publish",
+    "publish-major": "npm run pre-publish && npm version major && npm publish"
   },
   "keywords": [],
   "author": "Anaja Metellus",

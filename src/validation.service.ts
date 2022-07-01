@@ -75,14 +75,13 @@ export default class ValidationService {
 
                             // If the verb has requestBody, validate it
                             if (CommonUtils.getField(rawVerbData, "requestBody")) {
-                                const requestBodyRef = CommonUtils.getField(rawVerbData, 'requestBody.content.application/json.schema.$ref');
+                                const requestBodyRef = CommonUtils.searchField(rawVerbData.requestBody, "$ref");
                                 verbValidationResults = verbValidationResults.concat(validateVerbBody(requestBodyRef, "request"));
                             }
 
                             // If the verb has responseBody, validate it
                             if (CommonUtils.getField(rawVerbData, "responses.200")) {
-                                const responseBodyRef = CommonUtils.getField(rawVerbData, 'responses.200.content.application/json.schema.$ref')
-                                    || CommonUtils.getField(rawVerbData, 'responses.200.content.application/json.schema.items.$ref');
+                                const responseBodyRef = CommonUtils.searchField(rawVerbData.responseBody[200], "$ref");
                                 verbValidationResults = verbValidationResults.concat(validateVerbBody(responseBodyRef, "response"));
                             }
                             // If the verb has parameters, validate them
